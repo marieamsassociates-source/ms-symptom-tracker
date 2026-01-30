@@ -33,6 +33,7 @@ if check_password():
 
     df = pd.read_csv(FILENAME)
     
+    # Flexible date parsing for MM/DD/YYYY
     if not df.empty:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         df = df.dropna(subset=['Date']) 
@@ -44,9 +45,9 @@ if check_password():
     
     c1, c2 = st.sidebar.columns(2)
     with c1:
-        entry_date = st.sidebar.date_input("Date", datetime.now(), format="MM/DD/YYYY")
+        entry_date = st.date_input("Date", datetime.now(), format="MM/DD/YYYY")
     with c2:
-        entry_time = st.sidebar.time_input("Time", datetime.now().time())
+        entry_time = st.time_input("Time", datetime.now().time())
 
     final_timestamp = datetime.combine(entry_date, entry_time).strftime("%m/%d/%Y %H:%M")
 
@@ -73,20 +74,15 @@ if check_password():
             for event, sev in event_data.items():
                 etype = "Symptom" if event in symptom_options else "Trigger"
                 new_rows.append({
-                    "Date": final_timestamp,
-                    "Event": event,
-                    "Type": etype,
-                    "Severity": sev,
-                    "Notes": notes
+                    "Date": final_timestamp, "Event": event, "Type": etype, "Severity": sev, "Notes": notes
                 })
-            
             new_df = pd.DataFrame(new_rows)
             new_df.to_csv(FILENAME, mode='a', header=False, index=False)
             st.sidebar.success(f"Logged for {final_timestamp}!")
             st.rerun()
 
     # --- MAIN DASHBOARD ---
-    tab1, tab2, tab3 = st.tabs(["📈 Trends", "📋 History & Edit", "📄 Export"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📈 Trends", "📋 History & Edit", "📄 Export", "🔓 Logout"])
 
     with tab1:
         st.subheader("Severity Over Time")
@@ -102,4 +98,22 @@ if check_password():
     with tab2:
         st.subheader("Manage Entries")
         if not df.empty:
-            display_
+            display_df = df.copy()
+            display_df['Date_Str'] = display_df['Date'].dt.strftime("%m/%d/%Y %H:%M")
+            
+            # Show table without 'Type' column
+            cols_to_show = ['Date_Str', 'Event', 'Severity', 'Notes']
+            st.dataframe(display_df[cols_to_show].sort_values(by="Date_Str", ascending=False), use_container_width=True)
+            
+            st.write("---")
+            entry_options = []
+            for time_group, group_data in display_df.groupby('Date_Str'):
+                events_list = ", ".join(group_data['Event'].tolist())
+                entry_options.append(f"{time_group} | {events_list}")
+
+            entry_options.sort(reverse=True)
+            selected_full_line = st.selectbox("Select a log entry to modify/delete:", entry_options)
+            selected_time = selected_full_line.split(" | ")[0]
+            batch_df = df[df['Date'].dt.strftime("%m/%d/%Y %H:%M") == selected_time]
+            
+            col1
