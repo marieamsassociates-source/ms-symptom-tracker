@@ -10,14 +10,19 @@ import io
 st.set_page_config(page_title="MS Symptom Tracker", layout="wide")
 FILENAME = "ms_health_data.csv"
 
-if not os.path.isfile(FILENAME):
-    df_init = pd.DataFrame(columns=["Date", "Event", "Type", "Severity", "Notes"])
-    df_init.to_csv(FILENAME, index=False)
+# Function to load data robustly
+def load_data():
+    if not os.path.isfile(FILENAME):
+        df_init = pd.DataFrame(columns=["Date", "Event", "Type", "Severity", "Notes"])
+        df_init.to_csv(FILENAME, index=False)
+        return df_init
+    df_temp = pd.read_csv(FILENAME)
+    if not df_temp.empty:
+        df_temp['Date'] = pd.to_datetime(df_temp['Date'], errors='coerce')
+        df_temp = df_temp.dropna(subset=['Date'])
+    return df_temp
 
-df = pd.read_csv(FILENAME)
-if not df.empty:
-    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-    df = df.dropna(subset=['Date'])
+df = load_data()
 
 st.title("🎗️ MS Symptom & Trigger Tracker")
 
@@ -55,4 +60,18 @@ notes = st.sidebar.text_area("General Notes")
 
 if st.sidebar.button("Save Entry"):
     if not event_data:
-        st
+        st.sidebar.error("Please select or name a symptom.")
+    else:
+        new_rows = []
+        for event, sev in event_data.items():
+            etype = "Symptom" if event in symptom_options else "Trigger"
+            new_rows.append({
+                "Date": final_timestamp, 
+                "Event": event, 
+                "Type": etype, 
+                "Severity": sev, 
+                "Notes": notes
+            })
+        pd.DataFrame(new_rows).to_csv(FILENAME, mode='a', header=False, index=False)
+        st.sidebar.success(f"Logged for {final_timestamp}!")
+        st.rerun() # Forces the entire app to reload
