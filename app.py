@@ -10,7 +10,6 @@ import io
 st.set_page_config(page_title="MS Symptom Tracker", layout="wide")
 FILENAME = "ms_health_data.csv"
 
-# Function to ensure data is always fresh and formatted correctly
 def load_data():
     if not os.path.isfile(FILENAME):
         df_init = pd.DataFrame(columns=["Date", "Event", "Type", "Severity", "Notes"])
@@ -18,12 +17,10 @@ def load_data():
         return df_init
     df_temp = pd.read_csv(FILENAME)
     if not df_temp.empty:
-        # errors='coerce' prevents crashes if a date format gets corrupted
         df_temp['Date'] = pd.to_datetime(df_temp['Date'], errors='coerce')
         df_temp = df_temp.dropna(subset=['Date'])
     return df_temp
 
-# Initial load
 df = load_data()
 
 st.title("🎗️ MS Symptom & Trigger Tracker")
@@ -67,19 +64,12 @@ if st.sidebar.button("Save Entry"):
         new_rows = []
         for event, sev in event_data.items():
             etype = "Symptom" if event in symptom_options else "Trigger"
-            new_rows.append({
-                "Date": final_timestamp, 
-                "Event": event, 
-                "Type": etype, 
-                "Severity": sev, 
-                "Notes": notes
-            })
+            new_rows.append({"Date": final_timestamp, "Event": event, "Type": etype, "Severity": sev, "Notes": notes})
         pd.DataFrame(new_rows).to_csv(FILENAME, mode='a', header=False, index=False)
         st.sidebar.success(f"Logged for {final_timestamp}!")
-        st.rerun() # Force app to refresh and show new data immediately
+        st.rerun()
 
 # 3. Main Dashboard Tabs
-# We define tabs OUTSIDE of the "if df.empty" block so the UI is always visible
 tab1, tab2, tab3 = st.tabs(["📈 Trends", "📋 History & Manage", "📄 Export"])
 
 with tab1:
@@ -91,15 +81,13 @@ with tab1:
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         st.pyplot(fig)
     else:
-        st.info("No data logged yet. Use the sidebar to save your first entry.")
+        st.info("No data logged yet.")
 
 with tab2:
     st.subheader("History & Management")
     if not df.empty:
-        # Sort by Date (Newest first)
         display_df = df.sort_values(by="Date", ascending=False).copy()
         display_df['Date_Display'] = display_df['Date'].dt.strftime("%m/%d/%Y %I:%M %p")
-        
         st.dataframe(display_df[['Date_Display', 'Event', 'Type', 'Severity', 'Notes']], use_container_width=True)
         
         st.divider()
@@ -113,6 +101,12 @@ with tab2:
             
             col_e, col_d = st.columns([2, 1])
             with col_e:
+                # NEW: Modify Date and Time
+                original_dt = row_data['Date']
+                new_date = st.date_input("Update Date", value=original_dt)
+                new_time = st.time_input("Update Time", value=original_dt.time(), step=900)
+                updated_ts = datetime.combine(new_date, new_time).strftime("%m/%d/%Y %I:%M %p")
+
                 current_events = row_data['Event'].split(", ")
                 temp_options = list(set(all_options + current_events))
                 new_events = st.multiselect("Update Symptoms/Triggers", temp_options, default=current_events)
@@ -128,12 +122,11 @@ with tab2:
                     for event, sev in new_severities.items():
                         etype = "Symptom" if event in symptom_options else "Trigger"
                         new_entries.append({
-                            "Date": row_data['Date'].strftime("%m/%d/%Y %I:%M %p"),
-                            "Event": event, "Type": etype, "Severity": sev, "Notes": new_note
+                            "Date": updated_ts, "Event": event, "Type": etype, "Severity": sev, "Notes": new_note
                         })
                     df = pd.concat([df, pd.DataFrame(new_entries)], ignore_index=True)
                     df.to_csv(FILENAME, index=False)
-                    st.success("Log updated!")
+                    st.success("Entry updated!")
                     st.rerun()
             
             with col_d:
@@ -142,8 +135,6 @@ with tab2:
                     df = df.drop(item_idx)
                     df.to_csv(FILENAME, index=False)
                     st.rerun()
-    else:
-        st.info("No entries found.")
 
 with tab3:
     st.subheader("Export Records")
@@ -161,7 +152,5 @@ with tab3:
             for _, row in df.sort_values(by="Date", ascending=False).iterrows():
                 date_str = row['Date'].strftime("%m/%d/%Y %I:%M %p")
                 pdf.multi_cell(0, 10, f"{date_str} - {row['Event']} (Severity: {row['Severity']})\nNotes: {row['Notes']}\n{'-'*30}")
-            pdf_output = pdf.output(dest='S').encode('latin-1')
-            st.download_button("📥 Download PDF Report", data=pdf_output, file_name="MS_Health_Report.pdf", mime="application/pdf")
-    else:
-        st.info("No data available to export.")
+            pdf_bytes = pdf.output(dest='S').encode('latin-1')
+            st.download_button("📥 Download PDF Report", data=pdf_bytes, file_name="MS_Health_Report.pdf", mime="application/pdf")
