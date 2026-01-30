@@ -57,9 +57,37 @@ if st.sidebar.button("Save Entry"):
         new_rows = []
         for event, sev in event_data.items():
             etype = "Symptom" if event in symptom_options else "Trigger"
+            # FIXED: Properly closing the dictionary and the append function
             new_rows.append({
                 "Date": final_timestamp, 
                 "Event": event, 
                 "Type": etype, 
                 "Severity": sev, 
-                "Notes":
+                "Notes": notes
+            })
+        
+        # Append to CSV and refresh the page to show entries immediately
+        pd.DataFrame(new_rows).to_csv(FILENAME, mode='a', header=False, index=False)
+        st.sidebar.success(f"Logged for {final_timestamp}!")
+        st.rerun()
+
+# 3. Main Dashboard Tabs
+tab1, tab2 = st.tabs(["📈 Trends", "📋 History & Entries"])
+
+with tab1:
+    st.subheader("Severity Over Time")
+    if not df.empty:
+        fig, ax = plt.subplots(figsize=(10, 4))
+        for label, grp in df.groupby('Event'):
+            grp.sort_values('Date').plot(x='Date', y='Severity', ax=ax, label=label, marker='o')
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        st.pyplot(fig)
+    else:
+        st.info("No data available to display trends.")
+
+with tab2:
+    st.subheader("Recent Entries")
+    if not df.empty:
+        # Sort by Date (Newest first)
+        display_df = df.sort_values(by="Date", ascending=False).copy()
+        # Convert
