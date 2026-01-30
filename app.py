@@ -33,7 +33,6 @@ if check_password():
 
     df = pd.read_csv(FILENAME)
     
-    # Flexible date parsing to handle MM/DD/YYYY and older formats
     if not df.empty:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         df = df.dropna(subset=['Date']) 
@@ -45,7 +44,6 @@ if check_password():
     
     c1, c2 = st.sidebar.columns(2)
     with c1:
-        # Updated: Date picker display format set to MM/DD/YYYY
         entry_date = st.date_input("Date", datetime.now(), format="MM/DD/YYYY")
     with c2:
         entry_time = st.time_input("Time", datetime.now().time())
@@ -62,7 +60,7 @@ if check_password():
     if selected_events:
         st.sidebar.write("### Set Severities")
         for event in selected_events:
-            score = st.sidebar.slider(f"Intensity for {event}", 1, 10, 5, key=f"slider_{event}")
+            score = st.sidebar.slider(f"Intensity for {event}", 1, 10, 5, key=f"sidebar_{event}")
             event_data[event] = score
 
     notes = st.sidebar.text_area("General Notes")
@@ -99,78 +97,47 @@ if check_password():
             plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
             st.pyplot(fig)
         else:
-            st.info("No valid data to display. Please log a new entry.")
+            st.info("No valid data to display.")
 
     with tab2:
         st.subheader("Manage Entries")
         if not df.empty:
-            # Table View
             display_df = df.copy()
             display_df['Date_Str'] = display_df['Date'].dt.strftime("%m/%d/%Y %H:%M")
-            st.dataframe(display_df[['Date_Str', 'Event', 'Type', 'Severity', 'Notes']].sort_values(by="Date_Str", ascending=False), use_container_width=True)
+            
+            # Table View excluding 'Type'
+            st.dataframe(display_df[['Date_Str', 'Event', 'Severity', 'Notes']].sort_values(by="Date_Str", ascending=False), use_container_width=True)
             
             st.write("---")
-            # Batch Editing Logic: Group items by unique timestamps
-            unique_times = display_df['Date_Str'].unique()
-            selected_time = st.selectbox("Select a log entry to modify/delete:", unique_times)
             
-            # Identify all rows belonging to that timestamp
+            # Create dropdown line: Date | Event1, Event2
+            entry_options = []
+            for time_group, group_data in display_df.groupby('Date_Str'):
+                events_list = ", ".join(group_data['Event'].tolist())
+                entry_options.append(f"{time_group} | {events_list}")
+
+            entry_options.sort(reverse=True)
+            selected_full_line = st.selectbox("Select a log entry to modify/delete:", entry_options)
+            selected_time = selected_full_line.split(" | ")[0]
+            
             batch_df = df[df['Date'].dt.strftime("%m/%d/%Y %H:%M") == selected_time]
             
+            # Edit on Left, Delete on Right
             col1, col2 = st.columns([1, 1])
             with col1:
-                if st.button("🗑️ Delete All at this Time", type="primary", use_container_width=True):
-                    df = df[df['Date'].dt.strftime("%m/%d/%Y %H:%M") != selected_time]
-                    df.to_csv(FILENAME, index=False)
-                    st.success("Deleted all items for this timestamp.")
-                    st.rerun()
-            with col2:
                 edit_mode = st.button("📝 Edit Items at this Time", use_container_width=True)
                 if edit_mode:
                     st.session_state['editing_time'] = selected_time
+            with col2:
+                if st.button("🗑️ Delete All at this Time", type="primary", use_container_width=True):
+                    df = df[df['Date'].dt.strftime("%m/%d/%Y %H:%M") != selected_time]
+                    df.to_csv(FILENAME, index=False)
+                    st.success("Deleted.")
+                    st.rerun()
 
             if 'editing_time' in st.session_state and st.session_state['editing_time'] == selected_time:
                 st.info(f"Editing logs for: {selected_time}")
-                
-                # Notes are often shared across symptoms in a single entry
                 updated_notes = st.text_area("Update Notes", value=batch_df.iloc[0]['Notes'])
                 
-                # Individual sliders for each symptom in the batch
-                new_severities = {}
-                for idx, row in batch_df.iterrows():
-                    new_sev = st.slider(f"Update Intensity for {row['Event']}", 1, 10, int(row['Severity']), key=f"edit_sev_{idx}")
-                    new_severities[idx] = new_sev
-                
-                ec1, ec2 = st.columns(2)
-                with ec1:
-                    if st.button("Save Changes"):
-                        for idx, sev in new_severities.items():
-                            df.at[idx, 'Severity'] = sev
-                            df.at[idx, 'Notes'] = updated_notes
-                        df.to_csv(FILENAME, index=False)
-                        del st.session_state['editing_time']
-                        st.success("All items updated.")
-                        st.rerun()
-                with ec2:
-                    if st.button("Cancel"):
-                        del st.session_state['editing_time']
-                        st.rerun()
-
-    with tab3:
-        st.subheader("Generate Report")
-        if st.button("Create PDF Report"):
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", 'B', 16)
-            pdf.cell(200, 10, txt="MS Symptom Report", ln=True, align='C')
-            pdf.set_font("Arial", size=10)
-            for i, row in df.iterrows():
-                formatted_date = row['Date'].strftime("%m/%d/%Y %H:%M")
-                pdf.ln(5)
-                pdf.cell(0, 10, f"{formatted_date} - {row['Event']} (Severity: {row['Severity']})", ln=True)
-                pdf.multi_cell(0, 10, f"Notes: {row['Notes']}")
-            
-            pdf_path = "MS_Report.pdf"
-            pdf.output(pdf_path)
-            with open(pdf_path, "rb") as f:
-                st.download_button("Download PDF", f, file_name="MS_Symptom_Report.pdf")
+                # Edit existing severities
+                new
