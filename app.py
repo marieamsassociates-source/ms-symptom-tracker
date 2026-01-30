@@ -37,14 +37,52 @@ if check_password():
 
     st.title("🎗️ MS Symptom & Trigger Tracker")
 
-    # --- SIDEBAR: NEW ENTRY ---
-    st.sidebar.header("Log New Entry")
-    
-    symptom_options = ["Fatigue", "Optic Neuritis", "Tingling", "MS Hug (Chest Tightness)", "Incontinence"]
-    trigger_options = ["Cold Exposure", "Heat", "Stress", "Lack of Sleep"]
-    all_options = symptom_options + trigger_options + ["Other"]
+   # --- SIDEBAR: NEW ENTRY ---
+st.sidebar.header("Log New Entry")
 
-    event_name = st.sidebar.selectbox("Select Symptom or Trigger", all_options)
+symptom_options = ["Fatigue", "Optic Neuritis", "Tingling", "MS Hug (Chest Tightness)", "Incontinence"]
+trigger_options = ["Cold Exposure", "Heat", "Stress", "Lack of Sleep"]
+all_options = symptom_options + trigger_options
+
+# Choose multiple items
+selected_events = st.sidebar.multiselect("Select Symptoms or Triggers", all_options)
+
+# Dictionary to store severity for each selection
+event_data = {}
+
+if selected_events:
+    st.sidebar.write("### Set Severities")
+    for event in selected_events:
+        # Create a unique slider for each selected item
+        score = st.sidebar.slider(f"Intensity for {event}", 1, 10, 5, key=f"slider_{event}")
+        event_data[event] = score
+
+notes = st.sidebar.text_area("General Notes")
+
+if st.sidebar.button("Save Entry"):
+    if not selected_events:
+        st.sidebar.error("Please select at least one symptom or trigger.")
+    else:
+        new_rows = []
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        
+        for event, sev in event_data.items():
+            # Determine type automatically
+            etype = "Symptom" if event in symptom_options else "Trigger"
+            
+            new_rows.append({
+                "Date": timestamp,
+                "Event": event,
+                "Type": etype,
+                "Severity": sev,
+                "Notes": notes
+            })
+        
+        # Append all new rows to the CSV
+        new_df = pd.DataFrame(new_rows)
+        new_df.to_csv(FILENAME, mode='a', header=False, index=False)
+        st.sidebar.success(f"Logged {len(selected_events)} items!")
+        st.rerun()
     
     # Auto-categorize
     if event_name in symptom_options:
