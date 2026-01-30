@@ -31,7 +31,7 @@ if check_password():
         df_init = pd.DataFrame(columns=["Date", "Event", "Type", "Severity", "Notes"])
         df_init.to_csv(FILENAME, index=False)
 
-    # Load data with robust date parsing
+    # 2. Load and Clean Data
     df = pd.read_csv(FILENAME)
     if not df.empty:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
@@ -49,6 +49,7 @@ if check_password():
         # Step=900 for 15-minute increments
         entry_time = st.sidebar.time_input("Time", datetime.now().time(), step=900)
 
+    # FIXED: This line now correctly combines your chosen date and time
     final_timestamp = datetime.combine(entry_date, entry_time).strftime("%m/%d/%Y %I:%M %p")
 
     symptom_options = ["Fatigue", "Optic Neuritis", "Tingling", "MS Hug (Chest Tightness)", "Incontinence"]
@@ -98,5 +99,30 @@ if check_password():
     with tab2:
         st.subheader("Manage Entries")
         if not df.empty:
-            # Create a display copy to avoid modifying the core dataframe
             display_df = df.copy()
+            # Ensure sorting uses the actual datetime object
+            display_df = display_df.sort_values(by="Date", ascending=False)
+            display_df['Date_Str'] = display_df['Date'].dt.strftime("%m/%d/%Y %I:%M %p")
+            
+            st.dataframe(
+                display_df[['Date_Str', 'Event', 'Severity', 'Notes']], 
+                use_container_width=True
+            )
+            
+            st.write("---")
+            
+            # Dropdown for Delete/Manage
+            entry_options = []
+            for time_group, group_data in display_df.groupby('Date_Str', sort=False):
+                events_list = ", ".join(group_data['Event'].astype(str).tolist())
+                entry_options.append(f"{time_group} | {events_list}")
+
+            selected_full_line = st.selectbox("Select a log entry to manage:", ["-- Select an Entry --"] + entry_options)
+            
+            if selected_full_line != "-- Select an Entry --":
+                selected_time_str = selected_full_line.split(" | ")[0]
+                
+                if st.button("🗑️ Delete All at this Time", type="primary"):
+                    df_clean = pd.read_csv(FILENAME)
+                    df_clean['Temp_Date'] = pd.to_datetime(df_clean['Date']).dt.strftime("%m/%d/%Y %I:%M %p")
+                    df_clean = df_clean[df_clean['Temp_
