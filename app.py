@@ -10,12 +10,10 @@ import io
 st.set_page_config(page_title="MS Symptom Tracker", layout="wide")
 FILENAME = "ms_health_data.csv"
 
-# Initialize CSV if it doesn't exist
 if not os.path.isfile(FILENAME):
     df_init = pd.DataFrame(columns=["Date", "Event", "Type", "Severity", "Notes"])
     df_init.to_csv(FILENAME, index=False)
 
-# Load data with robust date parsing
 df = pd.read_csv(FILENAME)
 if not df.empty:
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
@@ -30,10 +28,8 @@ c1, c2 = st.sidebar.columns(2)
 with c1:
     entry_date = st.sidebar.date_input("Date", datetime.now())
 with c2:
-    # 15-minute increments for cleaner logging
     entry_time = st.sidebar.time_input("Time", datetime.now().time(), step=900, key="sidebar_time")
 
-# Combine and force 12-hour AM/PM format for the database
 dt_combined = datetime.combine(entry_date, entry_time)
 final_timestamp = dt_combined.strftime("%m/%d/%Y %I:%M %p")
 
@@ -85,7 +81,6 @@ with tab1:
 with tab2:
     st.subheader("History & Management")
     if not df.empty:
-        # Display table sorted by newest first
         display_df = df.sort_values(by="Date", ascending=False).copy()
         display_df['Date_Display'] = display_df['Date'].dt.strftime("%m/%d/%Y %I:%M %p")
         st.dataframe(display_df[['Date_Display', 'Event', 'Type', 'Severity', 'Notes']], use_container_width=True)
@@ -93,9 +88,49 @@ with tab2:
         st.divider()
         st.write("### Edit or Delete an Entry")
         
-        # Select row to manage
         manage_list = [f"{row['Date_Display']} | {row['Event']}" for _, row in display_df.iterrows()]
         selected_item = st.selectbox("Choose a log to modify:", ["-- Select --"] + manage_list)
         
         if selected_item != "-- Select --":
-            # Extract index from the original
+            # FIXED INDENTATION HERE
+            item_idx = display_df.index[manage_list.index(selected_item)]
+            row_data = df.loc[item_idx]
+            
+            col_e, col_d = st.columns(2)
+            with col_e:
+                new_sev = st.slider("Edit Severity", 1, 10, int(row_data['Severity']))
+                new_note = st.text_area("Edit Note", value=row_data['Notes'])
+                if st.button("Update Log"):
+                    df.at[item_idx, 'Severity'] = new_sev
+                    df.at[item_idx, 'Notes'] = new_note
+                    df.to_csv(FILENAME, index=False)
+                    st.success("Updated!")
+                    st.rerun()
+            
+            with col_d:
+                st.warning("Action is permanent")
+                if st.button("🗑️ Delete Log", type="primary"):
+                    df = df.drop(item_idx)
+                    df.to_csv(FILENAME, index=False)
+                    st.rerun()
+
+with tab3:
+    st.subheader("Export Records")
+    if not df.empty:
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download CSV Backup", data=csv, file_name="ms_tracker_data.csv", mime="text/csv")
+        
+        if st.button("🛠️ Generate PDF Report"):
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 16)
+            pdf.cell(200, 10, txt="MS Symptom History Report", ln=True, align='C')
+            pdf.set_font("Arial", size=10)
+            pdf.ln(10)
+            
+            for _, row in df.sort_values(by="Date", ascending=False).iterrows():
+                date_str = row['Date'].strftime("%m/%d/%Y %I:%M %p")
+                pdf.multi_cell(0, 10, f"{date_str} - {row['Event']} (Severity: {row['Severity']})\nNotes: {row['Notes']}\n{'-'*30}")
+            
+            pdf_bytes = pdf.output(dest='S').encode('latin-1')
+            st.download_button("📥 Download PDF Report", data=pdf_bytes, file_name="MS_Health_Report.pdf", mime="application/pdf")
