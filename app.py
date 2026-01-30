@@ -66,4 +66,15 @@ if st.sidebar.button("Save Entry"):
             etype = "Symptom" if event in symptom_options else "Trigger"
             new_rows.append({"Date": final_timestamp, "Event": event, "Type": etype, "Severity": sev, "Notes": notes})
         pd.DataFrame(new_rows).to_csv(FILENAME, mode='a', header=False, index=False)
-        st.sidebar.success(f"Logged
+        
+        # --- FIXED LINE 69 ---
+        st.sidebar.success(f"Logged for {final_timestamp}!")
+        st.rerun()
+
+# 3. Main Dashboard Tabs
+tab1, tab2, tab3 = st.tabs(["📈 Trends", "📋 History & Manage", "📄 Export"])
+
+with tab1:
+    st.subheader("Severity Over Time")
+    if not df.empty:
+        search_query = st.text_input("🔍 Search symptoms or
