@@ -31,10 +31,9 @@ if check_password():
         df_init = pd.DataFrame(columns=["Date", "Event", "Type", "Severity", "Notes"])
         df_init.to_csv(FILENAME, index=False)
 
-    # 2. Data Loading with Error Handling (Fixes line 109 error)
+    # Load data with robust date parsing
     df = pd.read_csv(FILENAME)
     if not df.empty:
-        # errors='coerce' turns unparseable dates into NaT instead of crashing
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         df = df.dropna(subset=['Date']) 
 
@@ -47,7 +46,7 @@ if check_password():
     with c1:
         entry_date = st.sidebar.date_input("Date", datetime.now(), format="MM/DD/YYYY")
     with c2:
-        # UPDATED: step=900 (15 minutes) as requested
+        # Step=900 for 15-minute increments
         entry_time = st.sidebar.time_input("Time", datetime.now().time(), step=900)
 
     final_timestamp = datetime.combine(entry_date, entry_time).strftime("%m/%d/%Y %I:%M %p")
@@ -94,49 +93,10 @@ if check_password():
             plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
             st.pyplot(fig)
         else:
-            st.info("No valid data to display.")
+            st.info("No valid data to display yet.")
 
     with tab2:
         st.subheader("Manage Entries")
         if not df.empty:
-            # Re-read to refresh data
-            display_df = pd.read_csv(FILENAME)
-            display_df['Date'] = pd.to_datetime(display_df['Date'], errors='coerce')
-            display_df = display_df.dropna(subset=['Date'])
-            display_df['Date_Str'] = display_df['Date'].dt.strftime("%m/%d/%Y %I:%M %p")
-            
-            st.dataframe(display_df[['Date_Str', 'Event', 'Severity', 'Notes']].sort_values(by="Date", ascending=False), use_container_width=True)
-            
-            st.write("---")
-            
-            # Grouping for dropdown selection
-            entry_options = []
-            for time_group, group_data in display_df.groupby('Date_Str'):
-                events_list = ", ".join(group_data['Event'].astype(str).tolist())
-                entry_options.append(f"{time_group} | {events_list}")
-
-            entry_options.sort(reverse=True)
-            selected_full_line = st.selectbox("Select a log entry to manage:", ["-- Select an Entry --"] + entry_options)
-            
-            if selected_full_line != "-- Select an Entry --":
-                selected_time_str = selected_full_line.split(" | ")[0]
-                
-                if st.button("🗑️ Delete All at this Time", type="primary"):
-                    df_clean = pd.read_csv(FILENAME)
-                    df_clean['Temp_Match'] = pd.to_datetime(df_clean['Date']).dt.strftime("%m/%d/%Y %I:%M %p")
-                    df_clean = df_clean[df_clean['Temp_Match'] != selected_time_str].drop(columns=['Temp_Match'])
-                    df_clean.to_csv(FILENAME, index=False)
-                    st.success("Deleted.")
-                    st.rerun()
-
-    with tab3:
-        st.subheader("Generate Report")
-        if st.button("Create PDF Report"):
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", 'B', 16)
-            pdf.cell(200, 10, txt="MS Symptom Report", ln=True, align='C')
-            pdf.set_font("Arial", size=10)
-            for i, row in df.iterrows():
-                pdf.ln(5)
-                pdf.cell(0, 10, f"{row['Date'].strftime('%m/%d/%Y %I:%M %p')} - {row['Event']} (Severity: {row['Severity']})", ln=True)
+            # Create a display copy to avoid modifying the core dataframe
+            display_df = df.copy()
