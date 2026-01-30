@@ -31,7 +31,7 @@ if check_password():
         df_init = pd.DataFrame(columns=["Date", "Event", "Type", "Severity", "Notes"])
         df_init.to_csv(FILENAME, index=False)
 
-    # 2. Load and Clean Data
+    # Load and Clean Data
     df = pd.read_csv(FILENAME)
     if not df.empty:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
@@ -46,10 +46,8 @@ if check_password():
     with c1:
         entry_date = st.sidebar.date_input("Date", datetime.now(), format="MM/DD/YYYY")
     with c2:
-        # Step=900 for 15-minute increments
         entry_time = st.sidebar.time_input("Time", datetime.now().time(), step=900)
 
-    # FIXED: This line now correctly combines your chosen date and time
     final_timestamp = datetime.combine(entry_date, entry_time).strftime("%m/%d/%Y %I:%M %p")
 
     symptom_options = ["Fatigue", "Optic Neuritis", "Tingling", "MS Hug (Chest Tightness)", "Incontinence"]
@@ -100,7 +98,6 @@ if check_password():
         st.subheader("Manage Entries")
         if not df.empty:
             display_df = df.copy()
-            # Ensure sorting uses the actual datetime object
             display_df = display_df.sort_values(by="Date", ascending=False)
             display_df['Date_Str'] = display_df['Date'].dt.strftime("%m/%d/%Y %I:%M %p")
             
@@ -111,7 +108,6 @@ if check_password():
             
             st.write("---")
             
-            # Dropdown for Delete/Manage
             entry_options = []
             for time_group, group_data in display_df.groupby('Date_Str', sort=False):
                 events_list = ", ".join(group_data['Event'].astype(str).tolist())
@@ -124,5 +120,32 @@ if check_password():
                 
                 if st.button("🗑️ Delete All at this Time", type="primary"):
                     df_clean = pd.read_csv(FILENAME)
+                    # REPAIRED LINE 128:
                     df_clean['Temp_Date'] = pd.to_datetime(df_clean['Date']).dt.strftime("%m/%d/%Y %I:%M %p")
-                    df_clean = df_clean[df_clean['Temp_
+                    df_clean = df_clean[df_clean['Temp_Date'] != selected_time_str].drop(columns=['Temp_Date'])
+                    df_clean.to_csv(FILENAME, index=False)
+                    st.success("Deleted.")
+                    st.rerun()
+
+    with tab3:
+        st.subheader("Generate Report")
+        if st.button("Create PDF Report"):
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 16)
+            pdf.cell(200, 10, txt="MS Symptom Report", ln=True, align='C')
+            pdf.set_font("Arial", size=10)
+            for i, row in df.iterrows():
+                pdf.ln(5)
+                pdf.cell(0, 10, f"{row['Date'].strftime('%m/%d/%Y %I:%M %p')} - {row['Event']} (Severity: {row['Severity']})", ln=True)
+                pdf.multi_cell(0, 10, f"Notes: {row['Notes']}")
+            pdf.output("MS_Report.pdf")
+            with open("MS_Report.pdf", "rb") as f:
+                st.download_button("Download PDF", f, file_name="MS_Symptom_Report.pdf")
+
+    with tab4:
+        st.subheader("Logout")
+        if st.button("Logout"):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
