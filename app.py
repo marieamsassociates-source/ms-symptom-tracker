@@ -45,9 +45,9 @@ if check_password():
     
     c1, c2 = st.sidebar.columns(2)
     with c1:
-        entry_date = st.date_input("Date", datetime.now(), format="MM/DD/YYYY")
+        entry_date = st.sidebar.date_input("Date", datetime.now(), format="MM/DD/YYYY")
     with c2:
-        entry_time = st.time_input("Time", datetime.now().time())
+        entry_time = st.sidebar.time_input("Time", datetime.now().time())
 
     final_timestamp = datetime.combine(entry_date, entry_time).strftime("%m/%d/%Y %H:%M")
 
@@ -61,4 +61,12 @@ if check_password():
     if selected_events:
         st.sidebar.write("### Set Severities")
         for event in selected_events:
-            score = st.sidebar.
+            # FIXED: Completed the slider logic that caused the error
+            score = st.sidebar.slider(f"Intensity for {event}", 1, 10, 5, key=f"sidebar_{event}")
+            event_data[event] = score
+
+    notes = st.sidebar.text_area("General Notes")
+
+    if st.sidebar.button("Save Entry"):
+        if not selected_events:
+            st.sidebar.error("Please select
