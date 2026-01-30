@@ -44,9 +44,9 @@ if check_password():
     
     c1, c2 = st.sidebar.columns(2)
     with c1:
-        entry_date = st.date_input("Date", datetime.now(), format="MM/DD/YYYY")
+        entry_date = st.sidebar.date_input("Date", datetime.now(), format="MM/DD/YYYY")
     with c2:
-        entry_time = st.time_input("Time", datetime.now().time())
+        entry_time = st.sidebar.time_input("Time", datetime.now().time())
 
     final_timestamp = datetime.combine(entry_date, entry_time).strftime("%m/%d/%Y %H:%M")
 
@@ -102,42 +102,4 @@ if check_password():
     with tab2:
         st.subheader("Manage Entries")
         if not df.empty:
-            display_df = df.copy()
-            display_df['Date_Str'] = display_df['Date'].dt.strftime("%m/%d/%Y %H:%M")
-            
-            # Table View excluding 'Type'
-            st.dataframe(display_df[['Date_Str', 'Event', 'Severity', 'Notes']].sort_values(by="Date_Str", ascending=False), use_container_width=True)
-            
-            st.write("---")
-            
-            # Create dropdown line: Date | Event1, Event2
-            entry_options = []
-            for time_group, group_data in display_df.groupby('Date_Str'):
-                events_list = ", ".join(group_data['Event'].tolist())
-                entry_options.append(f"{time_group} | {events_list}")
-
-            entry_options.sort(reverse=True)
-            selected_full_line = st.selectbox("Select a log entry to modify/delete:", entry_options)
-            selected_time = selected_full_line.split(" | ")[0]
-            
-            batch_df = df[df['Date'].dt.strftime("%m/%d/%Y %H:%M") == selected_time]
-            
-            # Edit on Left, Delete on Right
-            col1, col2 = st.columns([1, 1])
-            with col1:
-                edit_mode = st.button("📝 Edit Items at this Time", use_container_width=True)
-                if edit_mode:
-                    st.session_state['editing_time'] = selected_time
-            with col2:
-                if st.button("🗑️ Delete All at this Time", type="primary", use_container_width=True):
-                    df = df[df['Date'].dt.strftime("%m/%d/%Y %H:%M") != selected_time]
-                    df.to_csv(FILENAME, index=False)
-                    st.success("Deleted.")
-                    st.rerun()
-
-            if 'editing_time' in st.session_state and st.session_state['editing_time'] == selected_time:
-                st.info(f"Editing logs for: {selected_time}")
-                updated_notes = st.text_area("Update Notes", value=batch_df.iloc[0]['Notes'])
-                
-                # Edit existing severities
-                new
+            display_
