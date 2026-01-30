@@ -95,23 +95,41 @@ if check_password():
             selected_event = st.selectbox("Select an entry to modify/delete:", df['Selection'])
             idx = df[df['Selection'] == selected_event].index[0]
             
-            c1, c2 = st.columns(2)
-            with c1:
-                if st.button("🗑️ Delete Entry", type="primary"):
+            # This creates three columns to place buttons side-by-side
+            col1, col2, col3 = st.columns([1, 1, 2])
+            
+            with col1:
+                if st.button("🗑️ Delete Entry", type="primary", use_container_width=True):
                     df = df.drop(idx).drop(columns=['Selection'])
                     df.to_csv(FILENAME, index=False)
                     st.success("Deleted.")
                     st.rerun()
-            with c2:
-                if st.checkbox("📝 Edit Details"):
-                    new_sev = st.slider("Update Severity", 1, 10, int(df.at[idx, 'Severity']))
-                    new_notes = st.text_area("Update Notes", value=df.at[idx, 'Notes'])
+            
+            with col2:
+                # Changed from checkbox to a button to toggle the edit form
+                edit_mode = st.button("📝 Edit Entry", use_container_width=True)
+                if edit_mode:
+                    st.session_state['editing_idx'] = idx
+
+            # Display the edit form below if the button was clicked
+            if 'editing_idx' in st.session_state and st.session_state['editing_idx'] == idx:
+                st.info(f"Editing: {selected_event}")
+                new_sev = st.slider("Update Severity", 1, 10, int(df.at[idx, 'Severity']))
+                new_notes = st.text_area("Update Notes", value=df.at[idx, 'Notes'])
+                
+                ec1, ec2 = st.columns(2)
+                with ec1:
                     if st.button("Save Changes"):
                         df.at[idx, 'Severity'] = new_sev
                         df.at[idx, 'Notes'] = new_notes
                         df = df.drop(columns=['Selection'])
                         df.to_csv(FILENAME, index=False)
+                        del st.session_state['editing_idx']
                         st.success("Updated.")
+                        st.rerun()
+                with ec2:
+                    if st.button("Cancel"):
+                        del st.session_state['editing_idx']
                         st.rerun()
 
     with tab3:
