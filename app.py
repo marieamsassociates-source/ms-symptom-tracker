@@ -66,32 +66,4 @@ if st.sidebar.button("Save Entry"):
             etype = "Symptom" if event in symptom_options else "Trigger"
             new_rows.append({"Date": final_timestamp, "Event": event, "Type": etype, "Severity": sev, "Notes": notes})
         pd.DataFrame(new_rows).to_csv(FILENAME, mode='a', header=False, index=False)
-        st.sidebar.success(f"Logged for {final_timestamp}!")
-        st.rerun()
-
-# 3. Main Dashboard Tabs
-tab1, tab2, tab3 = st.tabs(["📈 Trends", "📋 History & Manage", "📄 Export"])
-
-with tab1:
-    st.subheader("Severity Over Time")
-    if not df.empty:
-        search_query = st.text_input("🔍 Search symptoms or triggers", "").strip().lower()
-        filtered_df = df if not search_query else df[df['Event'].str.lower().str.contains(search_query)]
-
-        if not filtered_df.empty:
-            fig, ax = plt.subplots(figsize=(10, 4))
-            for label, grp in filtered_df.groupby('Event'):
-                grp.sort_values('Date').plot(x='Date', y='Severity', ax=ax, label=label, marker='o')
-            plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-            plt.ylabel("Severity Score")
-            st.pyplot(fig)
-        else:
-            st.warning(f"No results found.")
-    else:
-        st.info("No data logged yet.")
-
-with tab2:
-    st.subheader("History & Management")
-    if not df.empty:
-        display_df = df.sort_values(by="Date", ascending=False).copy()
-        display_df['Date_Display'] = display_df['Date'].dt.strftime("%m/%d/%Y %I
+        st.sidebar.success(f"Logged
