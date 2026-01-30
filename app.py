@@ -24,11 +24,9 @@ def check_password():
     return True
 
 if check_password():
-    # App Configuration
     st.set_page_config(page_title="MS Symptom Tracker", layout="wide")
     FILENAME = "ms_health_data.csv"
 
-    # Initialize CSV if it doesn't exist
     if not os.path.isfile(FILENAME):
         df_init = pd.DataFrame(columns=["Date", "Event", "Type", "Severity", "Notes"])
         df_init.to_csv(FILENAME, index=False)
@@ -37,53 +35,53 @@ if check_password():
 
     st.title("🎗️ MS Symptom & Trigger Tracker")
 
-# --- SIDEBAR: NEW ENTRY ---
-st.sidebar.header("Log New Entry")
+    # --- SIDEBAR: NEW ENTRY ---
+    st.sidebar.header("Log New Entry")
+    
+    # Date & Time Pickers
+    c1, c2 = st.sidebar.columns(2)
+    with c1:
+        entry_date = st.date_input("Date", datetime.now())
+    with c2:
+        entry_time = st.time_input("Time", datetime.now().time())
 
-# New: Date and Time Pickers (Defaulting to "Now")
-c1, c2 = st.sidebar.columns(2)
-with c1:
-    entry_date = st.date_input("Date", datetime.now())
-with c2:
-    entry_time = st.time_input("Time", datetime.now().time())
+    # Updated Date Format: MM/DD/YYYY
+    final_timestamp = datetime.combine(entry_date, entry_time).strftime("%m/%d/%Y %H:%M")
 
-# Combine date and time into a single timestamp
-final_timestamp = datetime.combine(entry_date, entry_time).strftime("%Y-%m-%d %H:%M")
+    symptom_options = ["Fatigue", "Optic Neuritis", "Tingling", "MS Hug (Chest Tightness)", "Incontinence"]
+    trigger_options = ["Cold Exposure", "Heat", "Stress", "Lack of Sleep"]
+    all_options = symptom_options + trigger_options
 
-symptom_options = ["Fatigue", "Optic Neuritis", "Tingling", "MS Hug (Chest Tightness)", "Incontinence"]
-trigger_options = ["Cold Exposure", "Heat", "Stress", "Lack of Sleep"]
-all_options = symptom_options + trigger_options
+    selected_events = st.sidebar.multiselect("Select Symptoms or Triggers", all_options)
 
-selected_events = st.sidebar.multiselect("Select Symptoms or Triggers", all_options)
+    event_data = {}
+    if selected_events:
+        st.sidebar.write("### Set Severities")
+        for event in selected_events:
+            score = st.sidebar.slider(f"Intensity for {event}", 1, 10, 5, key=f"slider_{event}")
+            event_data[event] = score
 
-event_data = {}
-if selected_events:
-    st.sidebar.write("### Set Severities")
-    for event in selected_events:
-        score = st.sidebar.slider(f"Intensity for {event}", 1, 10, 5, key=f"slider_{event}")
-        event_data[event] = score
+    notes = st.sidebar.text_area("General Notes")
 
-notes = st.sidebar.text_area("General Notes")
-
-if st.sidebar.button("Save Entry"):
-    if not selected_events:
-        st.sidebar.error("Please select at least one symptom or trigger.")
-    else:
-        new_rows = []
-        for event, sev in event_data.items():
-            etype = "Symptom" if event in symptom_options else "Trigger"
-            new_rows.append({
-                "Date": final_timestamp, # Uses the manual or default timestamp
-                "Event": event,
-                "Type": etype,
-                "Severity": sev,
-                "Notes": notes
-            })
-        
-        new_df = pd.DataFrame(new_rows)
-        new_df.to_csv(FILENAME, mode='a', header=False, index=False)
-        st.sidebar.success(f"Logged items for {final_timestamp}!")
-        st.rerun()
+    if st.sidebar.button("Save Entry"):
+        if not selected_events:
+            st.sidebar.error("Please select at least one symptom.")
+        else:
+            new_rows = []
+            for event, sev in event_data.items():
+                etype = "Symptom" if event in symptom_options else "Trigger"
+                new_rows.append({
+                    "Date": final_timestamp,
+                    "Event": event,
+                    "Type": etype,
+                    "Severity": sev,
+                    "Notes": notes
+                })
+            
+            new_df = pd.DataFrame(new_rows)
+            new_df.to_csv(FILENAME, mode='a', header=False, index=False)
+            st.sidebar.success(f"Logged for {final_timestamp}!")
+            st.rerun()
 
     # --- MAIN DASHBOARD ---
     tab1, tab2, tab3 = st.tabs(["📈 Trends", "📋 History & Edit", "📄 Export"])
@@ -110,28 +108,22 @@ if st.sidebar.button("Save Entry"):
             selected_event = st.selectbox("Select an entry to modify/delete:", df['Selection'])
             idx = df[df['Selection'] == selected_event].index[0]
             
-            # This creates three columns to place buttons side-by-side
             col1, col2, col3 = st.columns([1, 1, 2])
-            
             with col1:
                 if st.button("🗑️ Delete Entry", type="primary", use_container_width=True):
                     df = df.drop(idx).drop(columns=['Selection'])
                     df.to_csv(FILENAME, index=False)
                     st.success("Deleted.")
                     st.rerun()
-            
             with col2:
-                # Changed from checkbox to a button to toggle the edit form
                 edit_mode = st.button("📝 Edit Entry", use_container_width=True)
                 if edit_mode:
                     st.session_state['editing_idx'] = idx
 
-            # Display the edit form below if the button was clicked
             if 'editing_idx' in st.session_state and st.session_state['editing_idx'] == idx:
                 st.info(f"Editing: {selected_event}")
                 new_sev = st.slider("Update Severity", 1, 10, int(df.at[idx, 'Severity']))
                 new_notes = st.text_area("Update Notes", value=df.at[idx, 'Notes'])
-                
                 ec1, ec2 = st.columns(2)
                 with ec1:
                     if st.button("Save Changes"):
