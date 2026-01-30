@@ -46,8 +46,10 @@ if check_password():
     with c1:
         entry_date = st.sidebar.date_input("Date", datetime.now(), format="MM/DD/YYYY")
     with c2:
-        entry_time = st.sidebar.time_input("Time", datetime.now().time())
-
+        # Adding a step value (in seconds) often triggers a browser-native 
+        # clock picker rather than a simple dropdown list.
+        entry_time = st.sidebar.time_input("Time", datetime.now().time(), step=900) # 900s = 15 min increments
+        
     final_timestamp = datetime.combine(entry_date, entry_time).strftime("%m/%d/%Y %H:%M")
 
     symptom_options = ["Fatigue", "Optic Neuritis", "Tingling", "MS Hug (Chest Tightness)", "Incontinence"]
