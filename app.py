@@ -65,4 +65,7 @@ if check_password():
 
     notes = st.sidebar.text_area("General Notes")
 
-    if st.
+    # FIXED: Replaced the incomplete 'if st.' with the proper button logic
+    if st.sidebar.button("Save Entry"):
+        if not selected_events:
+            st.sidebar.error("Please select at least
