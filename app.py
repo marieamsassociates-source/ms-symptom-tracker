@@ -33,10 +33,10 @@ if check_password():
 
     df = pd.read_csv(FILENAME)
     
-    # FLEXIBLE DATE PARSING: This fixes the ValueError
+    # Flexible date parsing to handle MM/DD/YYYY and older formats
     if not df.empty:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-        df = df.dropna(subset=['Date']) # Clean up any unparseable rows
+        df = df.dropna(subset=['Date']) 
 
     st.title("🎗️ MS Symptom & Trigger Tracker")
 
@@ -95,4 +95,69 @@ if check_password():
             fig, ax = plt.subplots(figsize=(10, 4))
             for label, grp in df.groupby('Event'):
                 grp.sort_values('Date').plot(x='Date', y='Severity', ax=ax, label=label, marker='o')
-            plt.legend(bbox_to_anchor=(1.05
+            # --- FIX APPLIED HERE ---
+            plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+            st.pyplot(fig)
+        else:
+            st.info("No valid data to display. Please log a new entry.")
+
+    with tab2:
+        st.subheader("Manage Entries")
+        if not df.empty:
+            display_df = df.copy()
+            display_df['Date'] = display_df['Date'].dt.strftime("%m/%d/%Y %H:%M")
+            st.dataframe(display_df.sort_values(by="Date", ascending=False), use_container_width=True)
+            
+            st.write("---")
+            display_df['Selection'] = display_df['Date'].astype(str) + " - " + display_df['Event']
+            selected_label = st.selectbox("Select an entry to modify/delete:", display_df['Selection'])
+            idx = display_df[display_df['Selection'] == selected_label].index[0]
+            
+            col1, col2, col3 = st.columns([1, 1, 2])
+            with col1:
+                if st.button("🗑️ Delete Entry", type="primary", use_container_width=True):
+                    df = df.drop(idx)
+                    df.to_csv(FILENAME, index=False)
+                    st.success("Deleted.")
+                    st.rerun()
+            with col2:
+                edit_mode = st.button("📝 Edit Entry", use_container_width=True)
+                if edit_mode:
+                    st.session_state['editing_idx'] = idx
+
+            if 'editing_idx' in st.session_state and st.session_state['editing_idx'] == idx:
+                st.info(f"Editing: {selected_label}")
+                new_sev = st.slider("Update Severity", 1, 10, int(df.at[idx, 'Severity']))
+                new_notes = st.text_area("Update Notes", value=df.at[idx, 'Notes'])
+                ec1, ec2 = st.columns(2)
+                with ec1:
+                    if st.button("Save Changes"):
+                        df.at[idx, 'Severity'] = new_sev
+                        df.at[idx, 'Notes'] = new_notes
+                        df.to_csv(FILENAME, index=False)
+                        del st.session_state['editing_idx']
+                        st.success("Updated.")
+                        st.rerun()
+                with ec2:
+                    if st.button("Cancel"):
+                        del st.session_state['editing_idx']
+                        st.rerun()
+
+    with tab3:
+        st.subheader("Generate Report")
+        if st.button("Create PDF Report"):
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 16)
+            pdf.cell(200, 10, txt="MS Symptom Report", ln=True, align='C')
+            pdf.set_font("Arial", size=10)
+            for i, row in df.iterrows():
+                formatted_date = row['Date'].strftime("%m/%d/%Y %H:%M")
+                pdf.ln(5)
+                pdf.cell(0, 10, f"{formatted_date} - {row['Event']} (Severity: {row['Severity']})", ln=True)
+                pdf.multi_cell(0, 10, f"Notes: {row['Notes']}")
+            
+            pdf_path = "MS_Report.pdf"
+            pdf.output(pdf_path)
+            with open(pdf_path, "rb") as f:
+                st.download_button("Download PDF", f, file_name="MS_Symptom_Report.pdf")
