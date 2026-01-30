@@ -101,12 +101,13 @@ with tab2:
             
             col_e, col_d = st.columns([2, 1])
             with col_e:
-                # NEW: Modify Date and Time
+                # Modify Date and Time
                 original_dt = row_data['Date']
                 new_date = st.date_input("Update Date", value=original_dt)
                 new_time = st.time_input("Update Time", value=original_dt.time(), step=900)
                 updated_ts = datetime.combine(new_date, new_time).strftime("%m/%d/%Y %I:%M %p")
 
+                # Symptoms & Individual Severities
                 current_events = row_data['Event'].split(", ")
                 temp_options = list(set(all_options + current_events))
                 new_events = st.multiselect("Update Symptoms/Triggers", temp_options, default=current_events)
