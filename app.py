@@ -46,10 +46,9 @@ if check_password():
     with c1:
         entry_date = st.sidebar.date_input("Date", datetime.now(), format="MM/DD/YYYY")
     with c2:
-        # Adding a step value (in seconds) often triggers a browser-native 
-        # clock picker rather than a simple dropdown list.
-        entry_time = st.sidebar.time_input("Time", datetime.now().time(), step=900) # 900s = 15 min increments
-        
+        # Step=60 forces most browsers to show a clock/time picker instead of a dropdown
+        entry_time = st.sidebar.time_input("Time", datetime.now().time(), step=60)
+
     final_timestamp = datetime.combine(entry_date, entry_time).strftime("%m/%d/%Y %H:%M")
 
     symptom_options = ["Fatigue", "Optic Neuritis", "Tingling", "MS Hug (Chest Tightness)", "Incontinence"]
@@ -82,7 +81,7 @@ if check_password():
             st.sidebar.success(f"Logged for {final_timestamp}!")
             st.rerun()
 
-    # --- MAIN DASHBOARD: TRENDS REVERTED TO POSITION 1 ---
+    # --- MAIN DASHBOARD ---
     tab1, tab2, tab3, tab4 = st.tabs(["📈 Trends", "📋 History & Edit", "📄 Export", "🔓 Logout"])
 
     with tab1:
@@ -153,30 +152,4 @@ if check_password():
                         st.success("Updated!")
                         st.rerun()
                 with ec2:
-                    if st.button("Cancel"):
-                        del st.session_state['editing_time']
-                        st.rerun()
-
-    with tab3:
-        st.subheader("Generate Report")
-        if st.button("Create PDF Report"):
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", 'B', 16)
-            pdf.cell(200, 10, txt="MS Symptom Report", ln=True, align='C')
-            pdf.set_font("Arial", size=10)
-            for i, row in df.iterrows():
-                pdf.ln(5)
-                pdf.cell(0, 10, f"{row['Date'].strftime('%m/%d/%Y %H:%M')} - {row['Event']} (Severity: {row['Severity']})", ln=True)
-                pdf.multi_cell(0, 10, f"Notes: {row['Notes']}")
-            pdf_path = "MS_Report.pdf"
-            pdf.output(pdf_path)
-            with open(pdf_path, "rb") as f:
-                st.download_button("Download PDF", f, file_name="MS_Symptom_Report.pdf")
-
-    with tab4:
-        st.subheader("Logout")
-        if st.button("Logout"):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            st.rerun()
+                    if st.button("
