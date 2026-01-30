@@ -5,10 +5,20 @@ from datetime import datetime
 from fpdf import FPDF
 import os
 import io
+import dropbox
 
-# 1. Setup & Data Loading
+# 1. Setup & Dropbox Configuration
 st.set_page_config(page_title="MS Symptom Tracker", layout="wide")
 FILENAME = "ms_health_data.csv"
+DROPBOX_PATH = f"/{FILENAME}"
+
+# Access credentials from Streamlit Secrets
+def get_dropbox_client():
+    return dropbox.Dropbox(
+        app_key=st.secrets["dropbox"]["app_key"],
+        app_secret=st.secrets["dropbox"]["app_secret"],
+        oauth2_refresh_token=st.secrets["dropbox"]["refresh_token"]
+    )
 
 def load_data():
     if not os.path.isfile(FILENAME):
@@ -20,6 +30,22 @@ def load_data():
         df_temp['Date'] = pd.to_datetime(df_temp['Date'], errors='coerce')
         df_temp = df_temp.dropna(subset=['Date'])
     return df_temp
+
+def sync_to_dropbox(df):
+    """Saves locally and uploads to Dropbox folder."""
+    # Save locally first
+    df.to_csv(FILENAME, index=False)
+    
+    # Upload to Dropbox
+    try:
+        dbx = get_dropbox_client()
+        csv_buffer = io.BytesIO()
+        df.to_csv(csv_buffer, index=False)
+        dbx.files_upload(csv_buffer.getvalue(), DROPBOX_PATH, mode=dropbox.files.WriteMode("overwrite"))
+        return True
+    except Exception as e:
+        st.error(f"Dropbox Sync Error: {e}")
+        return False
 
 df = load_data()
 
@@ -65,9 +91,11 @@ if st.sidebar.button("Save Entry"):
         for event, sev in event_data.items():
             etype = "Symptom" if event in symptom_options else "Trigger"
             new_rows.append({"Date": final_timestamp, "Event": event, "Type": etype, "Severity": sev, "Notes": notes})
-        pd.DataFrame(new_rows).to_csv(FILENAME, mode='a', header=False, index=False)
-        st.sidebar.success(f"Logged for {final_timestamp}!")
-        st.rerun()
+        
+        updated_df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
+        if sync_to_dropbox(updated_df):
+            st.sidebar.success(f"Synced to Dropbox for {final_timestamp}!")
+            st.rerun()
 
 # 3. Main Dashboard Tabs
 tab1, tab2, tab3 = st.tabs(["📈 Trends", "📋 History & Manage", "📄 Export"])
@@ -75,11 +103,18 @@ tab1, tab2, tab3 = st.tabs(["📈 Trends", "📋 History & Manage", "📄 Export
 with tab1:
     st.subheader("Severity Over Time")
     if not df.empty:
-        fig, ax = plt.subplots(figsize=(10, 4))
-        for label, grp in df.groupby('Event'):
-            grp.sort_values('Date').plot(x='Date', y='Severity', ax=ax, label=label, marker='o')
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        st.pyplot(fig)
+        search_query = st.text_input("🔍 Search symptoms or triggers", "").strip().lower()
+        filtered_df = df if not search_query else df[df['Event'].str.lower().str.contains(search_query)]
+
+        if not filtered_df.empty:
+            fig, ax = plt.subplots(figsize=(10, 4))
+            for label, grp in filtered_df.groupby('Event'):
+                grp.sort_values('Date').plot(x='Date', y='Severity', ax=ax, label=label, marker='o')
+            plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+            plt.ylabel("Severity Score")
+            st.pyplot(fig)
+        else:
+            st.warning("No matching results.")
     else:
         st.info("No data logged yet.")
 
@@ -92,7 +127,6 @@ with tab2:
         
         st.divider()
         st.write("### Edit or Delete an Entry")
-        # Creating selection labels (Time | Event)
         manage_list = [f"{row['Date_Display']} | {row['Event']}" for _, row in display_df.iterrows()]
         selected_item = st.selectbox("Choose a log to modify:", ["-- Select --"] + manage_list)
         
@@ -102,64 +136,42 @@ with tab2:
             
             col_e, col_d = st.columns([2, 1])
             with col_e:
-                # MODIFY DATE AND TIME
                 original_dt = row_data['Date']
                 new_date = st.date_input("Update Date", value=original_dt)
                 new_time = st.time_input("Update Time", value=original_dt.time(), step=900)
                 updated_ts = datetime.combine(new_date, new_time).strftime("%m/%d/%Y %I:%M %p")
 
-                # MODIFY SYMPTOMS AND SEVERITIES
                 current_events = row_data['Event'].split(", ")
                 temp_options = list(set(all_options + current_events))
                 new_events = st.multiselect("Update Symptoms/Triggers", temp_options, default=current_events)
                 
                 new_severities = {}
                 for event in new_events:
-                    # Pre-fill with existing severity
                     new_severities[event] = st.slider(f"Severity for {event}", 1, 10, int(row_data['Severity']), key=f"edit_sev_{event}")
                 
                 new_note = st.text_area("Edit Note", value=row_data['Notes'])
                 
                 if st.button("Update Log"):
-                    # Remove original and replace with individual updated entries
                     df = df.drop(item_idx)
                     new_entries = []
                     for event, sev in new_severities.items():
                         etype = "Symptom" if event in symptom_options else "Trigger"
-                        new_entries.append({
-                            "Date": updated_ts, 
-                            "Event": event, 
-                            "Type": etype, 
-                            "Severity": sev, 
-                            "Notes": new_note
-                        })
+                        new_entries.append({"Date": updated_ts, "Event": event, "Type": etype, "Severity": sev, "Notes": new_note})
+                    
                     df = pd.concat([df, pd.DataFrame(new_entries)], ignore_index=True)
-                    df.to_csv(FILENAME, index=False)
-                    st.success("Entry updated successfully!")
-                    st.rerun()
+                    if sync_to_dropbox(df):
+                        st.success("Entry updated and synced!")
+                        st.rerun()
             
             with col_d:
                 st.warning("Action is permanent")
                 if st.button("🗑️ Delete Log", type="primary"):
                     df = df.drop(item_idx)
-                    df.to_csv(FILENAME, index=False)
-                    st.rerun()
+                    if sync_to_dropbox(df):
+                        st.rerun()
 
 with tab3:
-    st.subheader("Export Records")
+    st.subheader("Manual Export")
     if not df.empty:
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Download CSV Backup", data=csv, file_name="ms_tracker_data.csv", mime="text/csv")
-        
-        if st.button("🛠️ Generate PDF Report"):
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", 'B', 16)
-            pdf.cell(200, 10, txt="MS Symptom History Report", ln=True, align='C')
-            pdf.set_font("Arial", size=10)
-            pdf.ln(10)
-            for _, row in df.sort_values(by="Date", ascending=False).iterrows():
-                date_str = row['Date'].strftime("%m/%d/%Y %I:%M %p")
-                pdf.multi_cell(0, 10, f"{date_str} - {row['Event']} (Severity: {row['Severity']})\nNotes: {row['Notes']}\n{'-'*30}")
-            pdf_bytes = pdf.output(dest='S').encode('latin-1')
-            st.download_button("📥 Download PDF Report", data=pdf_bytes, file_name="MS_Health_Report.pdf", mime="application/pdf")
