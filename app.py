@@ -48,7 +48,7 @@ if check_password():
     with c2:
         entry_time = st.sidebar.time_input("Time", datetime.now().time(), step=60)
 
-    # UPDATED: Changed to 12-hour clock with %I and %p for AM/PM
+    # Uses 12-hour format with AM/PM
     final_timestamp = datetime.combine(entry_date, entry_time).strftime("%m/%d/%Y %I:%M %p")
 
     symptom_options = ["Fatigue", "Optic Neuritis", "Tingling", "MS Hug (Chest Tightness)", "Incontinence"]
@@ -68,3 +68,45 @@ if check_password():
 
     if st.sidebar.button("Save Entry"):
         if not selected_events:
+            # FIXED: This block was missing indentation on line 71
+            st.sidebar.error("Please select at least one symptom.")
+        else:
+            new_rows = []
+            for event, sev in event_data.items():
+                etype = "Symptom" if event in symptom_options else "Trigger"
+                new_rows.append({
+                    "Date": final_timestamp, "Event": event, "Type": etype, "Severity": sev, "Notes": notes
+                })
+            new_df = pd.DataFrame(new_rows)
+            new_df.to_csv(FILENAME, mode='a', header=False, index=False)
+            st.sidebar.success(f"Logged for {final_timestamp}!")
+            st.rerun()
+
+    # --- MAIN DASHBOARD ---
+    tab1, tab2, tab3, tab4 = st.tabs(["📈 Trends", "📋 History & Edit", "📄 Export", "🔓 Logout"])
+
+    with tab1:
+        st.subheader("Severity Over Time")
+        if not df.empty:
+            fig, ax = plt.subplots(figsize=(10, 4))
+            for label, grp in df.groupby('Event'):
+                grp.sort_values('Date').plot(x='Date', y='Severity', ax=ax, label=label, marker='o')
+            plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+            st.pyplot(fig)
+        else:
+            st.info("No valid data to display.")
+
+    with tab2:
+        st.subheader("Manage Entries")
+        if not df.empty:
+            display_df = df.copy()
+            display_df['Date_Str'] = display_df['Date'].dt.strftime("%m/%d/%Y %I:%M %p")
+            st.dataframe(display_df[['Date_Str', 'Event', 'Severity', 'Notes']].sort_values(by="Date_Str", ascending=False), use_container_width=True)
+            
+            st.write("---")
+            entry_options = []
+            for time_group, group_data in display_df.groupby('Date_Str'):
+                events_list = ", ".join(group_data['Event'].tolist())
+                entry_options.append(f"{time_group} | {events_list}")
+
+            entry_options.sort(reverse=True)
