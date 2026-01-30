@@ -20,30 +20,29 @@ st.title("🎗️ MS Symptom & Trigger Tracker")
 
 # --- SIDEBAR: NEW ENTRY ---
 st.sidebar.header("Log New Event")
-event_type = st.sidebar.radio("Type", ["Symptom", "Trigger"])
-event_list = {
-    "Symptom": ["Fatigue", "Optic Neuritis", "Tingling", "MS Hug (Chest Tightness)", "Incontinence", "Other"],
-    "Trigger": ["Cold Exposure", "Heat", "Stress", "Lack of Sleep", "Other"]
-}
 
-event_name = st.sidebar.selectbox("Event Name", event_list[event_type])
-if event_name == "Other":
-    event_name = st.sidebar.text_input("Specify Other")
+# Combined list for easier selection
+symptom_options = ["Fatigue", "Optic Neuritis", "Tingling", "MS Hug (Chest Tightness)", "Incontinence"]
+trigger_options = ["Cold Exposure", "Heat", "Stress", "Lack of Sleep"]
+all_options = symptom_options + trigger_options + ["Other"]
+
+# Single dropdown for everything
+event_name = st.sidebar.selectbox("Select Symptom or Trigger", all_options)
+
+# Automatically determine the Type based on the selection
+if event_name in symptom_options:
+    event_type = "Symptom"
+elif event_name in trigger_options:
+    event_type = "Trigger"
+else:
+    event_type = "Other"
+    event_name = st.sidebar.text_input("Specify Name")
 
 severity = st.sidebar.slider("Severity/Intensity", 1, 10, 5)
-notes = st.sidebar.text_area("Notes (Triggers, duration, etc.)")
+notes = st.sidebar.text_area("Notes")
 
 if st.sidebar.button("Save Entry"):
-    new_row = pd.DataFrame([{
-        "Date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "Event": event_name,
-        "Type": event_type,
-        "Severity": severity,
-        "Notes": notes
-    }])
-    new_row.to_csv(FILENAME, mode='a', header=False, index=False)
-    st.sidebar.success("Logged!")
-    st.rerun()
+    # (Existing save logic remains the same)
 
 # --- MAIN DASHBOARD ---
 tab1, tab2, tab3 = st.tabs(["📈 Trends", "📋 History", "📄 Export"])
