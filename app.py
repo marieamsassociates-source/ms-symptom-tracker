@@ -81,11 +81,4 @@ if check_password():
             st.rerun()
 
     # --- MAIN DASHBOARD ---
-    tab1, tab2, tab3, tab4 = st.tabs(["📈 Trends", "📋 History & Edit", "📄 Export", "🔓 Logout"])
-
-    with tab1:
-        st.subheader("Severity Over Time")
-        if not df.empty:
-            fig, ax = plt.subplots(figsize=(10, 4))
-            for label, grp in df.groupby('Event'):
-                grp.sort_values('Date').plot(x='Date', y='Severity', ax=
+    tab
