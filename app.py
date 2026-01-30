@@ -5,33 +5,10 @@ from datetime import datetime
 from fpdf import FPDF
 import os
 import io
-import dropbox
 
-# 1. Setup & Dropbox Sync Logic
+# 1. Setup & Data Loading
 st.set_page_config(page_title="MS Symptom Tracker", layout="wide")
 FILENAME = "ms_health_data.csv"
-
-def get_dropbox_client():
-    if "dropbox" not in st.secrets:
-        return None
-    return dropbox.Dropbox(
-        app_key=st.secrets["dropbox"]["app_key"],
-        app_secret=st.secrets["dropbox"]["app_secret"],
-        oauth2_refresh_token=st.secrets["dropbox"]["refresh_token"]
-    )
-
-def sync_data(df):
-    # Save locally
-    df.to_csv(FILENAME, index=False)
-    # Sync to Dropbox
-    dbx = get_dropbox_client()
-    if dbx:
-        try:
-            csv_buffer = io.BytesIO()
-            df.to_csv(csv_buffer, index=False)
-            dbx.files_upload(csv_buffer.getvalue(), f"/{FILENAME}", mode=dropbox.files.WriteMode("overwrite"))
-        except Exception as e:
-            st.error(f"Dropbox Sync Failed: {e}")
 
 def load_data():
     if not os.path.isfile(FILENAME):
@@ -50,51 +27,72 @@ st.title("🎗️ MS Symptom & Trigger Tracker")
 
 # 2. Sidebar: Log New Entry
 st.sidebar.header("Log New Entry")
+
 c1, c2 = st.sidebar.columns(2)
 with c1:
     entry_date = st.sidebar.date_input("Date", datetime.now())
 with c2:
-    entry_time = st.sidebar.time_input("Time", datetime.now().time(), step=900)
+    entry_time = st.sidebar.time_input("Time", datetime.now().time(), step=900, key="sidebar_time")
 
 dt_combined = datetime.combine(entry_date, entry_time)
 final_timestamp = dt_combined.strftime("%m/%d/%Y %I:%M %p")
 
-symptom_options = ["Fatigue", "Optic Neuritis", "Tingling", "MS Hug", "Incontinence", "Other..."]
-selected_events = st.sidebar.multiselect("Select Symptoms or Triggers", symptom_options)
+symptom_options = ["Fatigue", "Optic Neuritis", "Tingling", "MS Hug (Chest Tightness)", "Incontinence", "Other..."]
+trigger_options = ["Cold Exposure", "Heat", "Stress", "Lack of Sleep", "Other..."]
+all_options = symptom_options + trigger_options
+
+selected_events = st.sidebar.multiselect("Select Symptoms or Triggers", all_options)
 
 event_data = {}
-for event in selected_events:
-    score = st.sidebar.slider(f"Intensity for {event}", 1, 10, 5, key=f"sidebar_{event}")
-    event_data[event] = score
+if selected_events:
+    for event in selected_events:
+        if event == "Other...":
+            custom_name = st.sidebar.text_input("Enter Custom Name", key="new_custom_name")
+            display_name = custom_name if custom_name else "Custom Event"
+        else:
+            display_name = event
+        
+        score = st.sidebar.slider(f"Intensity for {display_name}", 1, 10, 5, key=f"sidebar_{display_name}")
+        event_data[display_name] = score
 
 notes = st.sidebar.text_area("General Notes")
 
 if st.sidebar.button("Save Entry"):
     if not event_data:
-        st.sidebar.error("Please select a symptom.")
+        st.sidebar.error("Please select or name a symptom.")
     else:
         new_rows = []
         for event, sev in event_data.items():
-            new_rows.append({"Date": final_timestamp, "Event": event, "Type": "Symptom", "Severity": sev, "Notes": notes})
-        df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
-        sync_data(df)
-        st.sidebar.success("Saved & Synced!")
+            etype = "Symptom" if event in symptom_options else "Trigger"
+            new_rows.append({"Date": final_timestamp, "Event": event, "Type": etype, "Severity": sev, "Notes": notes})
+        pd.DataFrame(new_rows).to_csv(FILENAME, mode='a', header=False, index=False)
+        st.sidebar.success(f"Logged for {final_timestamp}!")
         st.rerun()
 
-# 3. Tabs
-tab1, tab2, tab3 = st.tabs(["📈 Trends", "📋 History", "📄 Export"])
+# 3. Main Dashboard Tabs
+tab1, tab2, tab3 = st.tabs(["📈 Trends", "📋 History & Manage", "📄 Export"])
 
 with tab1:
+    st.subheader("Severity Over Time")
     if not df.empty:
-        fig, ax = plt.subplots(figsize=(10, 4))
-        for label, grp in df.groupby('Event'):
-            grp.sort_values('Date').plot(x='Date', y='Severity', ax=ax, label=label, marker='o')
-        st.pyplot(fig)
+        search_query = st.text_input("🔍 Search symptoms or triggers", "").strip().lower()
+        filtered_df = df if not search_query else df[df['Event'].str.lower().str.contains(search_query)]
+
+        if not filtered_df.empty:
+            fig, ax = plt.subplots(figsize=(10, 4))
+            for label, grp in filtered_df.groupby('Event'):
+                grp.sort_values('Date').plot(x='Date', y='Severity', ax=ax, label=label, marker='o')
+            plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+            plt.ylabel("Severity Score")
+            st.pyplot(fig)
+        else:
+            st.warning("No matching results found.")
+    else:
+        st.info("No data logged yet.")
 
 with tab2:
-    st.dataframe(df.sort_values(by="Date", ascending=False), use_container_width=True)
-
-with tab3:
-    st.subheader("Manual Backup")
-    csv = df.to_csv(index=False).encode('utf-8')
-    st.download_button("📥 Download CSV Backup", data=csv, file_name="ms_tracker_backup.csv")
+    st.subheader("History & Management")
+    if not df.empty:
+        display_df = df.sort_values(by="Date", ascending=False).copy()
+        display_df['Date_Display'] = display_df['Date'].dt.strftime("%m/%d/%Y %I:%M %p")
+        st.dataframe(display_df[['Date_Display', 'Event', 'Type',
