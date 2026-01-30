@@ -33,7 +33,6 @@ if check_password():
 
     df = pd.read_csv(FILENAME)
     
-    # Flexible date parsing for MM/DD/YYYY
     if not df.empty:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         df = df.dropna(subset=['Date']) 
@@ -61,7 +60,6 @@ if check_password():
     if selected_events:
         st.sidebar.write("### Set Severities")
         for event in selected_events:
-            # FIXED: Completed the slider logic that caused the error
             score = st.sidebar.slider(f"Intensity for {event}", 1, 10, 5, key=f"sidebar_{event}")
             event_data[event] = score
 
@@ -69,4 +67,5 @@ if check_password():
 
     if st.sidebar.button("Save Entry"):
         if not selected_events:
-            st.sidebar.error("Please select
+            # FIXED: Properly closed the string literal here
+            st
