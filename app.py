@@ -6,14 +6,6 @@ from datetime import datetime
 import os
 
 # 1. Password Protection Logic
-def check_password():import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
-from fpdf import FPDF
-from datetime import datetime
-import os
-
-# 1. Password Protection Logic
 def check_password():
     def password_entered():
         if st.session_state["password"] == st.secrets["password"]:
@@ -64,7 +56,6 @@ if check_password():
 
     selected_events = st.sidebar.multiselect("Select Symptoms or Triggers", all_options)
 
-    # FIXED: Code is now properly indented under the 'if' statement
     event_data = {}
     if selected_events:
         st.sidebar.write("### Set Severities")
@@ -86,55 +77,11 @@ if check_password():
                 })
             new_df = pd.DataFrame(new_rows)
             new_df.to_csv(FILENAME, mode='a', header=False, index=False)
-            st.sidebar.success
-    def password_entered():
-        if st.session_state["password"] == st.secrets["password"]:
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]
-        else:
-            st.session_state["password_correct"] = False
+            st.sidebar.success(f"Logged for {final_timestamp}!")
+            st.rerun()
 
-    if "password_correct" not in st.session_state:
-        st.text_input("Please enter the app password", type="password", on_change=password_entered, key="password")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.text_input("Please enter the app password", type="password", on_change=password_entered, key="password")
-        st.error("😕 Password incorrect")
-        return False
-    return True
+    # --- MAIN DASHBOARD ---
+    tab1, tab2, tab3, tab4 = st.tabs(["📈 Trends", "📋 History & Edit", "📄 Export", "🔓 Logout"])
 
-if check_password():
-    st.set_page_config(page_title="MS Symptom Tracker", layout="wide")
-    FILENAME = "ms_health_data.csv"
-
-    if not os.path.isfile(FILENAME):
-        df_init = pd.DataFrame(columns=["Date", "Event", "Type", "Severity", "Notes"])
-        df_init.to_csv(FILENAME, index=False)
-
-    df = pd.read_csv(FILENAME)
-    
-    if not df.empty:
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-        df = df.dropna(subset=['Date']) 
-
-    st.title("🎗️ MS Symptom & Trigger Tracker")
-
-    # --- SIDEBAR: NEW ENTRY ---
-    st.sidebar.header("Log New Entry")
-    
-    c1, c2 = st.sidebar.columns(2)
-    with c1:
-        entry_date = st.sidebar.date_input("Date", datetime.now(), format="MM/DD/YYYY")
-    with c2:
-        entry_time = st.sidebar.time_input("Time", datetime.now().time(), step=60)
-
-    final_timestamp = datetime.combine(entry_date, entry_time).strftime("%m/%d/%Y %I:%M %p")
-
-    symptom_options = ["Fatigue", "Optic Neuritis", "Tingling", "MS Hug (Chest Tightness)", "Incontinence"]
-    trigger_options = ["Cold Exposure", "Heat", "Stress", "Lack of Sleep"]
-    all_options = symptom_options + trigger_options
-
-    selected_events = st.sidebar.multiselect("Select Symptoms or Triggers", all_options)
-
-    event_data = {}
-    if selected_events:
+    with tab1:
+        st.subheader("Severity Over Time")
