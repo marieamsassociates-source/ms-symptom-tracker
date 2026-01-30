@@ -15,9 +15,9 @@ DROPBOX_PATH = f"/{FILENAME}"
 # Access credentials from Streamlit Secrets
 def get_dropbox_client():
     return dropbox.Dropbox(
-        app_key=st.secrets["dropbox"]["app_key"],
-        app_secret=st.secrets["dropbox"]["app_secret"],
-        oauth2_refresh_token=st.secrets["dropbox"]["refresh_token"]
+        app_key=st.secrets["dropbox"]["ozm0zwkqakocx0u"],
+        app_secret=st.secrets["dropbox"]["uwd63xm4832k3xy"],
+        oauth2_refresh_token=st.secrets["dropbox"]["sl.u.AGRis-q1UGhEKN4NOcudypwL-1dfVaXk4bbMcgNB0Yw5-u4PPH6wqPZg1C3P1NTWgLZypmCsje8OC3GL7MxdQn2UMddMK0EOxSZVAQCFMglB1ByqsiJ68EWmi3SbZ6b3McLsL4Tq3jzNrh7EkYHKaH07rvxxznxAHHXC5kPB0L8iTFmwOx0UuF_oU_EEq1GnR8Nx09v4tcEb9shsgatBpHQvzb_osFRF9p6VTDDeqaV9qdV0njmrKVwesH4jjrXwYEogDCpUdQotIsM57iqJtvDQgOh730q2wAYyL4D-krazRunXnnE7jHQveCCN8Dfomq1aG4E9uB-W6zj4p3O_6ky7pbXYPwUWQdpPSw09juH_ogAcJ1qgy110hYEdsqG3QXD8NPmw-VGIIGIFHPklmz0Zr2mOu40AnFbN0OKf-L9OlWzd2pXFREVZiDWUr3Jyf7ErqK0SsbKZCyQjYWzRoztoD-nSWQ0lod7DiSs7aeyN6yUFoZpBhIg7I6o9ipQ-_ULLwk3YbJtEqWEKJdMfl2TySWpiHYm9g2rRzw0imIvs0gga53FLcbI34HgvENdRmYpA_AnBujW3N8_m-kFlkogo64JlMZbZz5yK0gcZXHyDk8TZtER-TptYV4L0Cj9G5979dy5_cF_NGE831D9q3fP6CHf10Xy6Kqjh_HwjpM4sLjOgvD1Wut4-_6hb_7f43RoFXX0zuORdfKA0j8OXb9yum0rj4GYu6A1-TOXd-ng6SsVa6Nx_Ieh7dhAHuuDLF0MnwrL9cr5waVXkBVlDSIdbsrfOfc4gcWFRKPXQfTWoT-9byWKdGFBGd8y1nctrUzglCKIkjFuuw12RvweZm51Px1s7oFmvk6EToGMvkAxAQzuvV68QVTtpRR0yvHOcEiN6XgW9I-h3h810kIEKCXMxe5s0nQaJ8m0DDHdJTEOgkNrcJbPxHymPF41p3LkY6Ty6sunnM6ff5P9TXC6xTLZL85pMU7MbA8mE343aQLEzZz8QDvdHbEinwNt4809CW0tquERT5clwMxBIVmFHjnsymBMfl4pY5UF45kjlUtFOw2KR0jqW0NNkrs2YwXvBU4bFjxvPhrATUSxMyVbpU_z3IrcrkTocrftC8MzNgnueQJHL8OkcOKoPTmrEqvIwWx9ThEDHs4OHUxL2oC9N72H81teCR7LZSHyOcK-f2EbBp7m7xmloPsvS2hHsVy0-Gyu8jwsKdZMpava7-vsaa6bHnYgMMM7aGVESfW2Jo_c81e9e85lLVFuB555FBpGZWV_bSjwxwUi3-Uwykw6h2sern"]
     )
 
 def load_data():
