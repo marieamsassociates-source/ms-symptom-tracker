@@ -67,4 +67,56 @@ if st.sidebar.button("Save Entry"):
             new_rows.append({"Date": final_timestamp, "Event": event, "Type": etype, "Severity": sev, "Notes": notes})
         pd.DataFrame(new_rows).to_csv(FILENAME, mode='a', header=False, index=False)
         st.sidebar.success(f"Logged for {final_timestamp}!")
-        st.
+        st.rerun()
+
+# 3. Main Dashboard Tabs - FIXED LINE 70
+tab1, tab2, tab3 = st.tabs(["📈 Trends", "📋 History & Manage", "📄 Export"])
+
+with tab1:
+    st.subheader("Severity Over Time")
+    if not df.empty:
+        search_query = st.text_input("🔍 Search symptoms or triggers", "").strip().lower()
+        filtered_df = df if not search_query else df[df['Event'].str.lower().str.contains(search_query)]
+
+        if not filtered_df.empty:
+            fig, ax = plt.subplots(figsize=(10, 4))
+            for label, grp in filtered_df.groupby('Event'):
+                grp.sort_values('Date').plot(x='Date', y='Severity', ax=ax, label=label, marker='o')
+            plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+            plt.ylabel("Severity Score")
+            st.pyplot(fig)
+        else:
+            st.warning(f"No results found for '{search_query}'.")
+    else:
+        st.info("No data logged yet.")
+
+with tab2:
+    st.subheader("History & Management")
+    if not df.empty:
+        display_df = df.sort_values(by="Date", ascending=False).copy()
+        display_df['Date_Display'] = display_df['Date'].dt.strftime("%m/%d/%Y %I:%M %p")
+        st.dataframe(display_df[['Date_Display', 'Event', 'Type', 'Severity', 'Notes']], use_container_width=True)
+        
+        st.divider()
+        st.write("### Edit or Delete an Entry")
+        manage_list = [f"{row['Date_Display']} | {row['Event']}" for _, row in display_df.iterrows()]
+        selected_item = st.selectbox("Choose a log to modify:", ["-- Select --"] + manage_list)
+        
+        if selected_item != "-- Select --":
+            item_idx = display_df.index[manage_list.index(selected_item)]
+            row_data = df.loc[item_idx]
+            
+            col_e, col_d = st.columns([2, 1])
+            with col_e:
+                original_dt = row_data['Date']
+                new_date = st.date_input("Update Date", value=original_dt)
+                new_time = st.time_input("Update Time", value=original_dt.time(), step=900)
+                updated_ts = datetime.combine(new_date, new_time).strftime("%m/%d/%Y %I:%M %p")
+
+                current_events = row_data['Event'].split(", ")
+                temp_options = list(set(all_options + current_events))
+                new_events = st.multiselect("Update Symptoms/Triggers", temp_options, default=current_events)
+                
+                new_severities = {}
+                for event in new_events:
+                    new_severities[event] = st.
