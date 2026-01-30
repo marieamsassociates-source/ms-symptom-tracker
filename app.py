@@ -95,4 +95,67 @@ with tab2:
     if not df.empty:
         display_df = df.sort_values(by="Date", ascending=False).copy()
         display_df['Date_Display'] = display_df['Date'].dt.strftime("%m/%d/%Y %I:%M %p")
-        st.dataframe(display_df[['Date_Display', 'Event', 'Type',
+        st.dataframe(display_df[['Date_Display', 'Event', 'Type', 'Severity', 'Notes']], use_container_width=True)
+        
+        st.divider()
+        st.write("### Edit or Delete an Entry")
+        manage_list = [f"{row['Date_Display']} | {row['Event']}" for _, row in display_df.iterrows()]
+        selected_item = st.selectbox("Choose a log to modify:", ["-- Select --"] + manage_list)
+        
+        if selected_item != "-- Select --":
+            item_idx = display_df.index[manage_list.index(selected_item)]
+            row_data = df.loc[item_idx]
+            
+            col_e, col_d = st.columns([2, 1])
+            with col_e:
+                original_dt = row_data['Date']
+                new_date = st.date_input("Update Date", value=original_dt)
+                new_time = st.time_input("Update Time", value=original_dt.time(), step=900)
+                updated_ts = datetime.combine(new_date, new_time).strftime("%m/%d/%Y %I:%M %p")
+
+                current_events = row_data['Event'].split(", ")
+                temp_options = list(set(all_options + current_events))
+                new_events = st.multiselect("Update Symptoms/Triggers", temp_options, default=current_events)
+                
+                new_severities = {}
+                for event in new_events:
+                    new_severities[event] = st.slider(f"Severity for {event}", 1, 10, int(row_data['Severity']), key=f"edit_sev_{event}")
+                
+                new_note = st.text_area("Edit Note", value=row_data['Notes'])
+                
+                if st.button("Update Log"):
+                    df = df.drop(item_idx)
+                    new_entries = []
+                    for event, sev in new_severities.items():
+                        etype = "Symptom" if event in symptom_options else "Trigger"
+                        new_entries.append({"Date": updated_ts, "Event": event, "Type": etype, "Severity": sev, "Notes": new_note})
+                    df = pd.concat([df, pd.DataFrame(new_entries)], ignore_index=True)
+                    df.to_csv(FILENAME, index=False)
+                    st.success("Entry updated!")
+                    st.rerun()
+            
+            with col_d:
+                st.warning("Action is permanent")
+                if st.button("🗑️ Delete Log", type="primary"):
+                    df = df.drop(item_idx)
+                    df.to_csv(FILENAME, index=False)
+                    st.rerun()
+
+with tab3:
+    st.subheader("Manual Export")
+    if not df.empty:
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download CSV Backup", data=csv, file_name="ms_tracker_data.csv", mime="text/csv")
+        
+        if st.button("🛠️ Generate PDF Report"):
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 16)
+            pdf.cell(200, 10, txt="MS Symptom History Report", ln=True, align='C')
+            pdf.set_font("Arial", size=10)
+            pdf.ln(10)
+            for _, row in df.sort_values(by="Date", ascending=False).iterrows():
+                date_str = row['Date'].strftime("%m/%d/%Y %I:%M %p")
+                pdf.multi_cell(0, 10, f"{date_str} - {row['Event']} (Severity: {row['Severity']})\nNotes: {row['Notes']}\n{'-'*30}")
+            pdf_bytes = pdf.output(dest='S').encode('latin-1')
+            st.download_button("📥 Download PDF Report", data=pdf_bytes, file_name="MS_Health_Report.pdf", mime="application/pdf")
