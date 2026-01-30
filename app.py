@@ -116,4 +116,75 @@ if check_password():
             selected_time = selected_full_line.split(" | ")[0]
             batch_df = df[df['Date'].dt.strftime("%m/%d/%Y %H:%M") == selected_time]
             
-            col1
+            col_edit, col_del = st.columns([1, 1])
+            with col_edit:
+                edit_mode = st.button("📝 Edit Items at this Time", use_container_width=True)
+                if edit_mode:
+                    st.session_state['editing_time'] = selected_time
+            with col_del:
+                if st.button("🗑️ Delete All at this Time", type="primary", use_container_width=True):
+                    df = df[df['Date'].dt.strftime("%m/%d/%Y %H:%M") != selected_time]
+                    df.to_csv(FILENAME, index=False)
+                    st.success("Deleted.")
+                    st.rerun()
+
+            if 'editing_time' in st.session_state and st.session_state['editing_time'] == selected_time:
+                st.info(f"Editing logs for: {selected_time}")
+                updated_notes = st.text_area("Update Notes", value=batch_df.iloc[0]['Notes'])
+                
+                new_severities = {}
+                for idx, row in batch_df.iterrows():
+                    new_sev = st.slider(f"Intensity: {row['Event']}", 1, 10, int(row['Severity']), key=f"edit_sev_{idx}")
+                    new_severities[idx] = new_sev
+                
+                current_events = batch_df['Event'].tolist()
+                available_to_add = [opt for opt in all_options if opt not in current_events]
+                added_events = st.multiselect("Include additional symptoms/triggers:", available_to_add)
+                
+                added_data = {}
+                for event in added_events:
+                    added_data[event] = st.slider(f"Intensity for {event}", 1, 10, 5, key=f"add_sev_{event}")
+
+                ec1, ec2 = st.columns(2)
+                with ec1:
+                    if st.button("Save Changes"):
+                        for idx, sev in new_severities.items():
+                            df.at[idx, 'Severity'] = sev
+                            df.at[idx, 'Notes'] = updated_notes
+                        if added_events:
+                            for event, sev in added_data.items():
+                                etype = "Symptom" if event in symptom_options else "Trigger"
+                                new_row = {"Date": datetime.strptime(selected_time, "%m/%d/%Y %H:%M"), "Event": event, "Type": etype, "Severity": sev, "Notes": updated_notes}
+                                df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+                        df.to_csv(FILENAME, index=False)
+                        del st.session_state['editing_time']
+                        st.success("Updated!")
+                        st.rerun()
+                with ec2:
+                    if st.button("Cancel"):
+                        del st.session_state['editing_time']
+                        st.rerun()
+
+    with tab3:
+        st.subheader("Generate Report")
+        if st.button("Create PDF Report"):
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", 'B', 16)
+            pdf.cell(200, 10, txt="MS Symptom Report", ln=True, align='C')
+            pdf.set_font("Arial", size=10)
+            for i, row in df.iterrows():
+                pdf.ln(5)
+                pdf.cell(0, 10, f"{row['Date'].strftime('%m/%d/%Y %H:%M')} - {row['Event']} (Severity: {row['Severity']})", ln=True)
+                pdf.multi_cell(0, 10, f"Notes: {row['Notes']}")
+            pdf_path = "MS_Report.pdf"
+            pdf.output(pdf_path)
+            with open(pdf_path, "rb") as f:
+                st.download_button("Download PDF", f, file_name="MS_Symptom_Report.pdf")
+
+    with tab4:
+        st.subheader("Logout")
+        if st.button("Logout"):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
