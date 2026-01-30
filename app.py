@@ -37,23 +37,29 @@ if check_password():
 
     st.title("🎗️ MS Symptom & Trigger Tracker")
 
-   # --- SIDEBAR: NEW ENTRY ---
+# --- SIDEBAR: NEW ENTRY ---
 st.sidebar.header("Log New Entry")
+
+# New: Date and Time Pickers (Defaulting to "Now")
+c1, c2 = st.sidebar.columns(2)
+with c1:
+    entry_date = st.date_input("Date", datetime.now())
+with c2:
+    entry_time = st.time_input("Time", datetime.now().time())
+
+# Combine date and time into a single timestamp
+final_timestamp = datetime.combine(entry_date, entry_time).strftime("%Y-%m-%d %H:%M")
 
 symptom_options = ["Fatigue", "Optic Neuritis", "Tingling", "MS Hug (Chest Tightness)", "Incontinence"]
 trigger_options = ["Cold Exposure", "Heat", "Stress", "Lack of Sleep"]
 all_options = symptom_options + trigger_options
 
-# Choose multiple items
 selected_events = st.sidebar.multiselect("Select Symptoms or Triggers", all_options)
 
-# Dictionary to store severity for each selection
 event_data = {}
-
 if selected_events:
     st.sidebar.write("### Set Severities")
     for event in selected_events:
-        # Create a unique slider for each selected item
         score = st.sidebar.slider(f"Intensity for {event}", 1, 10, 5, key=f"slider_{event}")
         event_data[event] = score
 
@@ -64,48 +70,19 @@ if st.sidebar.button("Save Entry"):
         st.sidebar.error("Please select at least one symptom or trigger.")
     else:
         new_rows = []
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-        
         for event, sev in event_data.items():
-            # Determine type automatically
             etype = "Symptom" if event in symptom_options else "Trigger"
-            
             new_rows.append({
-                "Date": timestamp,
+                "Date": final_timestamp, # Uses the manual or default timestamp
                 "Event": event,
                 "Type": etype,
                 "Severity": sev,
                 "Notes": notes
             })
         
-        # Append all new rows to the CSV
         new_df = pd.DataFrame(new_rows)
         new_df.to_csv(FILENAME, mode='a', header=False, index=False)
-        st.sidebar.success(f"Logged {len(selected_events)} items!")
-        st.rerun()
-    
-    # Auto-categorize
-    if event_name in symptom_options:
-        event_type = "Symptom"
-    elif event_name in trigger_options:
-        event_type = "Trigger"
-    else:
-        event_type = "Other"
-        event_name = st.sidebar.text_input("Specify Name")
-
-    severity = st.sidebar.slider("Severity/Intensity", 1, 10, 5)
-    notes = st.sidebar.text_area("Notes")
-
-    if st.sidebar.button("Save Entry"):
-        new_row = pd.DataFrame([{
-            "Date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "Event": event_name,
-            "Type": event_type,
-            "Severity": severity,
-            "Notes": notes
-        }])
-        new_row.to_csv(FILENAME, mode='a', header=False, index=False)
-        st.sidebar.success("Logged!")
+        st.sidebar.success(f"Logged items for {final_timestamp}!")
         st.rerun()
 
     # --- MAIN DASHBOARD ---
