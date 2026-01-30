@@ -92,6 +92,7 @@ with tab2:
         
         st.divider()
         st.write("### Edit or Delete an Entry")
+        # Creating selection labels (Time | Event)
         manage_list = [f"{row['Date_Display']} | {row['Event']}" for _, row in display_df.iterrows()]
         selected_item = st.selectbox("Choose a log to modify:", ["-- Select --"] + manage_list)
         
@@ -101,33 +102,40 @@ with tab2:
             
             col_e, col_d = st.columns([2, 1])
             with col_e:
-                # Modify Date and Time
+                # MODIFY DATE AND TIME
                 original_dt = row_data['Date']
                 new_date = st.date_input("Update Date", value=original_dt)
                 new_time = st.time_input("Update Time", value=original_dt.time(), step=900)
                 updated_ts = datetime.combine(new_date, new_time).strftime("%m/%d/%Y %I:%M %p")
 
-                # Symptoms & Individual Severities
+                # MODIFY SYMPTOMS AND SEVERITIES
                 current_events = row_data['Event'].split(", ")
                 temp_options = list(set(all_options + current_events))
                 new_events = st.multiselect("Update Symptoms/Triggers", temp_options, default=current_events)
                 
                 new_severities = {}
                 for event in new_events:
+                    # Pre-fill with existing severity
                     new_severities[event] = st.slider(f"Severity for {event}", 1, 10, int(row_data['Severity']), key=f"edit_sev_{event}")
                 
                 new_note = st.text_area("Edit Note", value=row_data['Notes'])
+                
                 if st.button("Update Log"):
+                    # Remove original and replace with individual updated entries
                     df = df.drop(item_idx)
                     new_entries = []
                     for event, sev in new_severities.items():
                         etype = "Symptom" if event in symptom_options else "Trigger"
                         new_entries.append({
-                            "Date": updated_ts, "Event": event, "Type": etype, "Severity": sev, "Notes": new_note
+                            "Date": updated_ts, 
+                            "Event": event, 
+                            "Type": etype, 
+                            "Severity": sev, 
+                            "Notes": new_note
                         })
                     df = pd.concat([df, pd.DataFrame(new_entries)], ignore_index=True)
                     df.to_csv(FILENAME, index=False)
-                    st.success("Entry updated!")
+                    st.success("Entry updated successfully!")
                     st.rerun()
             
             with col_d:
